@@ -64,7 +64,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
   @ConfigurationOption(displayName = "Primary Tables",
       description = "Tables containing primary data, to which metadata tables will be joined. Either primary tables or non-primary tables must be provided, but not both.",
       formEntryClass = ConfigurationOption.STRING_LIST)
-  public List<String> getPrimaryTable() {
+  public List<String> getPrimaryTables() {
     return primaryTables;
   }
 
@@ -452,6 +452,14 @@ public class GenericCompositeJoiner implements QueryTransformer {
     return compJoin;
   }
 
+  /**
+   * Depending on whether the primaryTables or nonPrimaryTables field is populated, generates a
+   * query that will only select records from the appropriate table(s), which can then be used as
+   * the query for the "FROM" table
+   * 
+   * @return
+   * @throws AttivioException
+   */
   protected Query generateFromQuery() throws AttivioException {
     if (this.primaryTables != null && this.primaryTables.size() > 0) {
       BooleanOrQuery orQ = new BooleanOrQuery();
@@ -462,7 +470,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
     } else if (this.nonPrimaryTables != null && this.nonPrimaryTables.size() > 0) {
       BooleanOrQuery orQ = new BooleanOrQuery();
       for (String tableName : this.nonPrimaryTables) {
-        orQ.add(new BooleanNotQuery(new PhraseQuery(FieldNames.TABLE, tableName)));
+        orQ.add(new PhraseQuery(FieldNames.TABLE, tableName));
       }
       return new BooleanNotQuery(orQ);
     } else {

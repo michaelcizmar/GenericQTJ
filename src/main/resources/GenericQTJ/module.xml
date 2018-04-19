@@ -15,11 +15,11 @@
   </configuration>
     
   <components>
-    <component name="Generic Composite Joiner" class="com.attivio.transformer.query.GenericQTJ.GenericCompositeJoiner">
+    <component name="genericCompositeJoiner" class="com.attivio.transformer.query.GenericQTJ.GenericCompositeJoiner">
       <properties>
       </properties>
     </component>
-    <component name="Multi Field Joiner" class="com.attivio.transformer.query.GenericQTJ.MultiFieldJoiner">
+    <component name="multiFieldJoiner" class="com.attivio.transformer.query.GenericQTJ.MultiFieldJoiner">
       <properties>
       </properties>
     </component>

@@ -1,0 +1,13 @@
+{
+  "name":"GenericQTJ",
+  "moduleVersion":"0.1.0-SNAPSHOT",
+  "description":"Suite of Query Transformers for Executing Joins",
+  "initClassName":"com.attivio.transformer.query.GenericQTJ.ModuleInit",
+  "components": [
+    "com.attivio.transformer.query.GenericQTJ.GenericCompositeJoiner",
+    "com.attivio.transformer.query.GenericQTJ.MultiFieldJoiner"
+  ],
+  "newFiles": {
+    "lib/GenericQTJ.jar":"lib/GenericQTJ-0.1.0-SNAPSHOT.jar"
+  }
+}

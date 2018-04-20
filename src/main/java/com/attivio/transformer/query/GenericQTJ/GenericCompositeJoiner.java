@@ -302,7 +302,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
     // from, so we use Regex.
     // NOTE: There is probably a better way that I don't know about that doesn't require Regex.
     // The idea here is loop through the filters, and if any of them pertain to the metadata facet
-    // fields, extract them into specific queries that we can leverage within out composite join.
+    // fields, extract them into specific queries that we can leverage within our composite join.
     for (Query filterQuery : originalFilters) {
       String queryString = filterQuery.getQueryString();
       boolean matchFound = false;

@@ -21,3 +21,15 @@ The Generic Composite Joiner transforms the query into a CompositeJoin Query. It
 | Facet Metadata Tables | List of tables used for child records whose fields should be used in facet calculations. |
 | Ignore Advanced Queries (Advanced Tab) | If set to *true*, advanced queries will not be modified by this transformer.  |
 | Provide Query Feedback (Advanced Tab) | If set to *true*, detailed feedback will be provided (useful for troubleshooting) |
+
+### Multi-Field Joiner
+The Multi-Field Joiner transforms the query into a JOIN query (regular JOIN, not a CompositeJoin). It can handle joins across multiple tables, even when the tables need to be joined on different fields, and can also handle use cases where facet filtering is based off of fields on the child documents. 
+
+![Multi-Field Joiner](https://git.attivio.com/emodules/GenericQTJ/blob/master/screenshots/multifield_joiner_config_1.PNG)
+
+The Multi-Field Joiner extends the Generic Composite Joiner, so the configuration is almost exactly the same. The only difference is that the Multi-Field Joiner has an additional property for mapping table names to the field name to use for the join key. 
+
+| Configuration Property | Description |
+| --- | --- |
+| Metadata Table Join Fields | Map of table names to the fields that they will be joined on. |
+

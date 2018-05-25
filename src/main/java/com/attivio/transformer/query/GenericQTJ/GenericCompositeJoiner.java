@@ -164,9 +164,10 @@ public class GenericCompositeJoiner implements QueryTransformer {
     Map<String, String> response = new HashMap<String, String>();
     for (String key : this.metadataFacetFields.keySet()) {
       List<String> facetFields = this.metadataFacetFields.get(key);
-      for (String field : facetFields) {
-        response.put(key, field);
-      }
+//      for (String field : facetFields) {
+//        response.put(key, field);
+//      }
+      response.put(key, String.join(",", facetFields));
     }
     return response;
   }

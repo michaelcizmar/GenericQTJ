@@ -314,7 +314,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
                 .add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner",
                     "Found metadata facet filter in QueryFilter: " + queryString));
           }
-          String regex = facetFieldName + ":(.*)[,)]";
+          String regex = facetFieldName + ":(.*)";
           Pattern pattern = Pattern.compile(regex);
           Matcher m = pattern.matcher(queryString);
           if (m.find() && m.groupCount() >= 1) {

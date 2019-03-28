@@ -7,7 +7,7 @@ There are two query transformers: the Generic Composite Joiner, and the Multi-Fi
 ### Generic Composite Joiner
 The Generic Composite Joiner transforms the query into a CompositeJoin Query. It can handle joins across multiple tables, and can also handle use cases where facet filtering is based off of fields on the child documents. 
 
-![Generic Composite Joiner](https://git.attivio.com/emodules/GenericQTJ/blob/master/screenshots/generic_composite_joiner_config_1.PNG)
+![Generic Composite Joiner](https://github.com/attivio/GenericQTJ/blob/master/screenshots/generic_composite_joiner_config_1.PNG)
 
 | Configuration Property | Description |
 | --- | --- |
@@ -25,7 +25,7 @@ The Generic Composite Joiner transforms the query into a CompositeJoin Query. It
 ### Multi-Field Joiner
 The Multi-Field Joiner transforms the query into a JOIN query (regular JOIN, not a CompositeJoin). It can handle joins across multiple tables, even when the tables need to be joined on different fields, and can also handle use cases where facet filtering is based off of fields on the child documents. 
 
-![Multi-Field Joiner](https://git.attivio.com/emodules/GenericQTJ/blob/master/screenshots/multifield_joiner_config_1.PNG)
+![Multi-Field Joiner](https://github.com/attivio/GenericQTJ/blob/master/screenshots/multifield_joiner_config_1.PNG)
 
 The Multi-Field Joiner extends the Generic Composite Joiner, so the configuration is almost exactly the same. The only difference is that the Multi-Field Joiner has an additional property for mapping table names to the field name to use for the join key. 
 

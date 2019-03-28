@@ -25,7 +25,6 @@ import com.attivio.sdk.search.query.CompositeJoinQuery.Clause;
 import com.attivio.sdk.search.query.JoinMode;
 import com.attivio.sdk.search.query.PhraseQuery;
 import com.attivio.sdk.search.query.Query;
-import com.attivio.sdk.search.query.QueryString;
 import com.attivio.sdk.server.annotation.ConfigurationOption;
 import com.attivio.sdk.server.annotation.ConfigurationOption.OptionLevel;
 import com.attivio.sdk.server.annotation.ConfigurationOptionInfo;
@@ -38,7 +37,7 @@ import com.attivio.sdk.server.component.query.QueryTransformer;
 @ConfigurationOptionInfo(displayName = "Generic Composite Joiner", description = "Transforms query into a Composite Join with a specified tables", groups = {
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.PLATFORM_COMPONENT, propertyNames = {
 				"primaryTables", "nonPrimaryTables", "metadataTables", "joinField", "maxChildDocs",
-				"propertiesToPreserve", "metadataFacetFields", "tablesToIncludeInFacetCounts" }),
+				"metadataFacetFields", "tablesToIncludeInFacetCounts" }),
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.ADVANCED, propertyNames = {
 				"ignoreAdvancedQueries", "provideFeedback" }) })
 public class GenericCompositeJoiner implements QueryTransformer {
@@ -51,7 +50,6 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	protected String joinField;
 	protected int maxChildDocs;
 	protected boolean provideFeedback;
-	protected List<String> propertiesToPreserve = new ArrayList<String>();
 	protected Map<String, List<String>> metadataFacetFields = new HashMap<String, List<String>>();
 	protected boolean ignoreAdvancedQueries;
 	private List<String> tablesToIncludeInFacetCounts = new ArrayList<String>();
@@ -134,22 +132,6 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	}
 
 	/**
-	 * @return the propertiesToPreserve
-	 */
-	@ConfigurationOption(displayName = "Properties To Preserve", description = "Properties on the QueryRequest that should be preserved if found", formEntryClass = ConfigurationOption.STRING_LIST)
-	public List<String> getPropertiesToPreserve() {
-		return propertiesToPreserve;
-	}
-
-	/**
-	 * @param propertiesToPreserve
-	 *            the propertiesToPreserve to set
-	 */
-	public void setPropertiesToPreserve(List<String> propertiesToPreserve) {
-		this.propertiesToPreserve = propertiesToPreserve;
-	}
-
-	/**
 	 * @return the metadataFacetFields
 	 */
 	@ConfigurationOption(displayName = "Metadata Facet Fields", description = "Map of table to Fields from that table that are used as facets", formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
@@ -215,8 +197,6 @@ public class GenericCompositeJoiner implements QueryTransformer {
 				log.trace(message);
 			}
 		} else {
-			Map<String, Object> properties = this.extractProperties(qr, feedback);
-//			properties.put("join.facet", "FULL");
 			qr.setProperty("join.facet", "FULL");
 			Map<String, List<Query>> facetFilters = this.extractMetadataFacetFilterQueries(qr, feedback);
 			Query joinQuery = this.buildCompositeJoinQuery(facetFilters, qr, feedback);
@@ -226,22 +206,8 @@ public class GenericCompositeJoiner implements QueryTransformer {
 				log.debug(message);
 			}
 			qr.setQuery(joinQuery);
-//			this.addPropertiesToQueryRequest(properties, qr, feedback);
 		}
 		return feedback;
-	}
-
-	private Map<String, Object> extractProperties(QueryRequest qr, List<QueryFeedback> feedback) {
-		Map<String, Object> properties = new HashMap<String, Object>();
-		for (String key : this.propertiesToPreserve) {
-			if (qr.hasProperty(key)) {
-				properties.put(key, qr.getProperty(key));
-				String message = "Copied Property: " + key;
-				feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
-				log.trace(message);
-			}
-		}
-		return properties;
 	}
 
 	/**
@@ -342,28 +308,14 @@ public class GenericCompositeJoiner implements QueryTransformer {
 								new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
 						log.trace(message);
 					}
-					String regex = facetFieldName + ":FACET.{1}(.*)\\).{1,2},{0,1}";
-					System.out.println("MATCHING: " + regex + " ON " + queryString);
-					log.trace("MATCHING: " + regex + " ON " + queryString);
-					Pattern pattern = Pattern.compile(regex);
-					Matcher m = pattern.matcher(queryString);
-					if (m.find() && m.groupCount() >= 1) {
-						matchFound = true;
-						String fieldValue = m.group(1);
-						fieldValue = this.handleRangeFacetFilters(fieldValue);
-//						QueryRequest filterQueryRequest = new QueryRequest();
-//						filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
-//						facetSubQueries.add(filterQueryRequest.getQuery());
-//						PhraseQuery newQuery = new PhraseQuery(facetFieldName,fieldValue);
-						Query newQuery = f.getFilter();
-						facetSubQueries.add(newQuery);
-						if (this.provideFeedback) {
-							String message = "Found " + facetFieldName
-									+ ", stripping from filter and building into query..." + newQuery;
-							feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner",
-									message));
-							log.trace(message);
-						}
+					Query newQuery = f.getFilter();
+					facetSubQueries.add(newQuery);
+					if (this.provideFeedback) {
+						String message = "Found " + facetFieldName
+								+ ", stripping from filter and building into query..." + newQuery;
+						feedback.add(
+								new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
+						log.trace(message);
 					}
 				}
 			}
@@ -379,35 +331,6 @@ public class GenericCompositeJoiner implements QueryTransformer {
 		}
 		qr.setFacetFilters(newFacetFilters);
 		return facetSubQueries;
-	}
-
-	/**
-	 * For facet filters coming from Range Facets, we need to extract the RANGE
-	 * query and rewrite it to the standard range syntax from simple query language
-	 * (like [], [}, etc.)
-	 * 
-	 * @param fieldValue
-	 *            The field value to conditionally rewrite into a proper range query
-	 *            if necessary
-	 */
-	private String handleRangeFacetFilters(String fieldValue) {
-		String returnValue = fieldValue;
-		String regexForNumericRanges = "RANGE\\((.*),\\s{0,1}(.*),\\s{0,1}upper=(\\w*)\\)";
-		Pattern pForNumRanges = Pattern.compile(regexForNumericRanges);
-		Matcher mForNumRanges = pForNumRanges.matcher(fieldValue);
-		if (mForNumRanges.find() && mForNumRanges.groupCount() >= 3) {
-			// We found a range
-			String rangeStart = mForNumRanges.group(1);
-			String rangeEnd = mForNumRanges.group(2);
-			String upperBoundryType = mForNumRanges.group(3);
-			if (upperBoundryType.equals("exclusive")) {
-				returnValue = String.format("[%s TO %s]", rangeStart, rangeEnd);
-			} else if (upperBoundryType.equals("inclusive")) {
-				returnValue = String.format("[%s TO %s}", rangeStart, rangeEnd);
-			}
-		}
-		log.trace(String.format("Rewrote field value from facet filter query from %s to %s", fieldValue, returnValue));
-		return returnValue;
 	}
 
 	/**
@@ -504,26 +427,4 @@ public class GenericCompositeJoiner implements QueryTransformer {
 			return new BooleanNotQuery(orQ);
 		}
 	}
-
-//	/**
-//	 * Copies a set of query properties onto a query object
-//	 * 
-//	 * @param properties
-//	 *            A Map of property names and values to copy onto the query
-//	 * @param qr
-//	 *            the query request to copy the properties onto
-//	 * @return The query with the properties added
-//	 */
-//	private void addPropertiesToQueryRequest(Map<String, Object> properties, QueryRequest qr,
-//			List<QueryFeedback> feedback) {
-//		for (String key : properties.keySet()) {
-//			qr.setProperty(key, properties.get(key));
-//			if (this.provideFeedback) {
-//				String message = "Added property " + key + " and value " + properties.get(key) + " to QueryRequest";
-//				feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
-//				log.trace(message);
-//			}
-//		}
-//	}
-
 }

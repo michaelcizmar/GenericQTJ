@@ -17,8 +17,8 @@ import com.attivio.sdk.search.query.FacetQuery;
 import com.attivio.util.ObjectUtils;
 
 public class MultiFieldJoinerTest {
-	
-	private MultiFieldJoiner setup(){
+
+	private MultiFieldJoiner setup() {
 		MultiFieldJoiner joiner = new MultiFieldJoiner();
 		joiner.setJoinField("metadataLink");
 		joiner.setMaxChildDocs("-1");
@@ -27,16 +27,12 @@ public class MultiFieldJoinerTest {
 		tables.add("metadata");
 		tables.add("anotherMetadata Table");
 		joiner.setMetadataTables(tables);
-		List<String> propertiesToPreserve = new ArrayList<String>();
-		propertiesToPreserve.add("testProperty");
-		propertiesToPreserve.add("join.facet");
-		joiner.setPropertiesToPreserve(propertiesToPreserve);
 		joiner.setProvideFeedback(true);
 		Map<String, String> metadataFacetFields = new HashMap<String, String>();
 		metadataFacetFields.put("metadata", "topic, company");
 		metadataFacetFields.put("anotherMetadata Table", "people");
 		joiner.setMetadataFacetFields(metadataFacetFields);
-		
+
 		Map<String, String> overridingJoinFields = new HashMap<String, String>();
 		overridingJoinFields.put("anotherMetadata Table", "uniqueJoinField");
 		joiner.setJoinFields(overridingJoinFields);
@@ -48,17 +44,16 @@ public class MultiFieldJoinerTest {
 		QueryRequest qr = new QueryRequest();
 		qr.setQuery("content:electronic", "SIMPLE");
 		qr.setProperty("testProperty", true);
-		
+
 		GenericCompositeJoiner joiner = this.setup();
 		try {
 			List<QueryFeedback> feedback = joiner.processQuery(qr);
-			
+
 			assertTrue(qr.hasProperty("testProperty"));
 			assertTrue(Boolean.valueOf(qr.getProperty("testProperty").toString()));
 
-
 			System.out.println(qr.getQuery().prettyFormat());
-			for(QueryFeedback feedbackItem : feedback){
+			for (QueryFeedback feedbackItem : feedback) {
 				System.out.println(feedbackItem);
 			}
 		} catch (AttivioException e) {
@@ -66,9 +61,9 @@ public class MultiFieldJoinerTest {
 			e.printStackTrace();
 		}
 	}
-	
+
 	@Test
-	public void testWithFacetFilter(){
+	public void testWithFacetFilter() {
 		QueryRequest qr = new QueryRequest();
 		qr.setQuery("content:electronic", "SIMPLE");
 		qr.setProperty("testProperty", true);
@@ -81,17 +76,16 @@ public class MultiFieldJoinerTest {
 		System.out.println("Adding facet query: " + fq1);
 		qr.addFacetFilter(filter1);
 		qr.addFacetFilter(filter2);
-		
+
 		GenericCompositeJoiner joiner = this.setup();
 		try {
 			List<QueryFeedback> feedback = joiner.processQuery(qr);
-			
+
 			assertTrue(qr.hasProperty("testProperty"));
 			assertTrue(Boolean.valueOf(qr.getProperty("testProperty").toString()));
 
-
 			System.out.println(qr.getQuery().prettyFormat());
-			for(QueryFeedback feedbackItem : feedback){
+			for (QueryFeedback feedbackItem : feedback) {
 				System.out.println(feedbackItem);
 			}
 		} catch (AttivioException e) {

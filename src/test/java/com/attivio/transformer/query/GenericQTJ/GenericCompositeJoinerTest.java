@@ -32,10 +32,6 @@ public class GenericCompositeJoinerTest {
 		tables.add("metadata");
 		tables.add("anotherMetadata Table");
 		joiner.setMetadataTables(tables);
-		List<String> propertiesToPreserve = new ArrayList<String>();
-		propertiesToPreserve.add("testProperty");
-		propertiesToPreserve.add("join.facet");
-		joiner.setPropertiesToPreserve(propertiesToPreserve);
 		joiner.setProvideFeedback(true);
 		Map<String, String> metadataFacetFields = new HashMap<String, String>();
 		metadataFacetFields.put("metadata", "topic, company, transaction_amount, date");

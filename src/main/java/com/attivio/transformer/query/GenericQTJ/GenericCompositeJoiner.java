@@ -36,33 +36,29 @@ import com.attivio.sdk.server.component.query.QueryTransformer;
  */
 @ConfigurationOptionInfo(displayName = "Generic Composite Joiner", description = "Transforms query into a Composite Join with a specified tables", groups = {
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.PLATFORM_COMPONENT, propertyNames = {
-				"primaryTables", "nonPrimaryTables", "metadataTables", "joinField", "maxChildDocs",
-				"metadataFacetFields", "tablesToIncludeInFacetCounts" }),
+				"primaryTables", "nonPrimaryTables", "childTables", "joinField", "maxChildDocs",
+				"childTableFacetFields", "tablesToIncludeInFacetCounts" }),
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.ADVANCED, propertyNames = {
-				"ignoreAdvancedQueries", "provideFeedback" }) })
+				"ignoreAdvancedQueries", "provideFeedback", "tableBoosts" }) })
 public class GenericCompositeJoiner implements QueryTransformer {
 
 	private Logger log = LoggerFactory.getLogger(this.getClass());
 
 	protected List<String> primaryTables;
 	protected List<String> nonPrimaryTables;
-	protected List<String> metadataTables;
+	protected Map<String, String> childTables;
 	protected String joinField;
-	protected int maxChildDocs;
+	protected Map<String, Integer> maxChildDocs;
 	protected boolean provideFeedback;
-	protected Map<String, List<String>> metadataFacetFields = new HashMap<String, List<String>>();
+	protected Map<String, List<String>> childTableFacetFields = new HashMap<String, List<String>>();
 	protected boolean ignoreAdvancedQueries;
 	private List<String> tablesToIncludeInFacetCounts = new ArrayList<String>();
-
-	public GenericCompositeJoiner() {
-		this.tablesToIncludeInFacetCounts.add("index_metadata");
-		this.tablesToIncludeInFacetCounts.add("XML_Metadata");
-	}
+	private Map<String, Integer> tableBoosts;
 
 	/**
 	 * @return the primaryTable
 	 */
-	@ConfigurationOption(displayName = "Primary Tables", description = "Tables containing primary data, to which metadata tables will be joined. Either primary tables or non-primary tables must be provided, but not both.", formEntryClass = ConfigurationOption.STRING_LIST)
+	@ConfigurationOption(displayName = "Primary Tables", description = "Tables containing primary data, to which child tables will be joined. Either primary tables or non-primary tables must be provided, but not both.", formEntryClass = ConfigurationOption.STRING_LIST)
 	public List<String> getPrimaryTables() {
 		return primaryTables;
 	}
@@ -86,17 +82,17 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	/**
 	 * @return the metadataTable
 	 */
-	@ConfigurationOption(displayName = "Metadata Tables", description = "Tables containing metadata to leverage in JOIN", optionLevel = OptionLevel.Required, formEntryClass = ConfigurationOption.STRING_LIST)
-	public List<String> getMetadataTables() {
-		return metadataTables;
+	@ConfigurationOption(displayName = "Child Tables", description = "Map of Tables containing metadata or related non-primary date to leverage in JOIN to the Join Mode for that table (either INNER or OUTER)", optionLevel = OptionLevel.Required, formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
+	public Map<String, String> getChildTables() {
+		return childTables;
 	}
 
 	/**
 	 * @param metadataTable
 	 *            the metadataTable to set
 	 */
-	public void setMetadataTables(List<String> metadataTables) {
-		this.metadataTables = metadataTables;
+	public void setChildTables(Map<String, String> childTables) {
+		this.childTables = childTables;
 	}
 
 	/**
@@ -118,27 +114,27 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	/**
 	 * @return the maxChildDocs
 	 */
-	@ConfigurationOption(displayName = "Max Child Docs", description = "Max number of child docs to relate to parent doc. Set to -1 for no limit.", optionLevel = OptionLevel.Required)
-	public String getMaxChildDocs() {
-		return String.valueOf(maxChildDocs);
+	@ConfigurationOption(displayName = "Max Child Docs", description = "Max number of child docs to relate to parent doc. Set to -1 for no limit.", optionLevel = OptionLevel.Required, formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
+	public Map<String, Integer> getMaxChildDocs() {
+		return maxChildDocs;
 	}
 
 	/**
 	 * @param maxChildDocs
 	 *            the maxChildDocs to set
 	 */
-	public void setMaxChildDocs(String maxChildDocs) {
-		this.maxChildDocs = Integer.valueOf(maxChildDocs);
+	public void setMaxChildDocs(Map<String, Integer> maxChildDocs) {
+		this.maxChildDocs = maxChildDocs;
 	}
 
 	/**
 	 * @return the metadataFacetFields
 	 */
-	@ConfigurationOption(displayName = "Metadata Facet Fields", description = "Map of table to Fields from that table that are used as facets", formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
-	public Map<String, String> getMetadataFacetFields() {
+	@ConfigurationOption(displayName = "Child Table Facet Fields", description = "Map of table to Fields from that table that are used as facets", formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
+	public Map<String, String> getChildTableFacetFields() {
 		Map<String, String> response = new HashMap<String, String>();
-		for (String key : this.metadataFacetFields.keySet()) {
-			List<String> facetFields = this.metadataFacetFields.get(key);
+		for (String key : this.childTableFacetFields.keySet()) {
+			List<String> facetFields = this.childTableFacetFields.get(key);
 			response.put(key, String.join(",", facetFields));
 		}
 		return response;
@@ -148,7 +144,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	 * @param metadataFacetFields
 	 *            the metadataFacetFields to set
 	 */
-	public void setMetadataFacetFields(Map<String, String> metadataFacetFields) {
+	public void setChildTableFacetFields(Map<String, String> metadataFacetFields) {
 		Map<String, List<String>> tableFacets = new HashMap<String, List<String>>();
 		for (String key : metadataFacetFields.keySet()) {
 			key = key.trim();
@@ -156,7 +152,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 			tableFacets.put(key, Arrays.asList(facetFields));
 			log.trace("Adding facet fields " + Arrays.toString(facetFields) + " for table " + key);
 		}
-		this.metadataFacetFields = tableFacets;
+		this.childTableFacetFields = tableFacets;
 	}
 
 	@ConfigurationOption(displayName = "Provide Query Feedback", description = "Should detailed query feedback be provided", formEntryClass = ConfigurationOption.FALSE_SWITCH_VALUE)
@@ -177,13 +173,22 @@ public class GenericCompositeJoiner implements QueryTransformer {
 		this.ignoreAdvancedQueries = ignoreAdvancedQueries;
 	}
 
-	@ConfigurationOption(displayName = "Facet Metadata Tables", description = "Tables to include in facet counts", formEntryClass = ConfigurationOption.STRING_LIST)
+	@ConfigurationOption(displayName = "Facetable Tables", description = "Tables to include in facet counts", formEntryClass = ConfigurationOption.STRING_LIST)
 	public List<String> getTablesToIncludeInFacetCounts() {
 		return tablesToIncludeInFacetCounts;
 	}
 
 	public void setTablesToIncludeInFacetCounts(List<String> tablesToIncludeInFacetCounts) {
 		this.tablesToIncludeInFacetCounts = tablesToIncludeInFacetCounts;
+	}
+
+	@ConfigurationOption(displayName = "Table Boost Amounts", description = "Static boosts to be applied to a table's clause (the default for ommited tables is 0)", formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
+	public Map<String, Integer> getTableBoosts() {
+		return tableBoosts;
+	}
+
+	public void setTableBoosts(Map<String, Integer> tableBoosts) {
+		this.tableBoosts = tableBoosts;
 	}
 
 	@Override
@@ -201,7 +206,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 			Map<String, List<Query>> facetFilters = this.extractMetadataFacetFilterQueries(qr, feedback);
 			Query joinQuery = this.buildCompositeJoinQuery(facetFilters, qr, feedback);
 			if (this.provideFeedback) {
-				String message = "Final Composite Join Query: " + joinQuery.prettyFormat();
+				String message = "Final Composite Join Query: " + joinQuery.getQueryString();
 				feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
 				log.debug(message);
 			}
@@ -226,9 +231,9 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	 */
 	private Map<String, List<Query>> extractMetadataFacetFilterQueries(QueryRequest qr, List<QueryFeedback> feedback) {
 		Map<String, List<Query>> filterSubQueries = new HashMap<String, List<Query>>();
-		for (String table : this.metadataFacetFields.keySet()) {
+		for (String table : this.childTableFacetFields.keySet()) {
 			filterSubQueries.put(table,
-					this.extractMetadataFacetFilterQueriesHelper(qr, feedback, this.metadataFacetFields.get(table)));
+					this.extractMetadataFacetFilterQueriesHelper(qr, feedback, this.childTableFacetFields.get(table)));
 		}
 		return filterSubQueries;
 	}
@@ -308,14 +313,30 @@ public class GenericCompositeJoiner implements QueryTransformer {
 								new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
 						log.trace(message);
 					}
-					Query newQuery = f.getFilter();
-					facetSubQueries.add(newQuery);
+					// Query newQuery = f.getFilter();
+					//// facetSubQueries.add(newQuery);
+					// if (this.provideFeedback) {
+					// String message = "Found " + facetFieldName
+					// + ", stripping from filter and building into query..." + newQuery;
+					// feedback.add(
+					// new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner",
+					// message));
+					// log.trace(message);
+					// }
+					String regex = facetFieldName + ":FACET.{1}(.*).{1},{0,1}";
+					System.out.println("MATCHING: " + regex + " ON " + queryString);
+					Pattern pattern = Pattern.compile(regex);
+					Matcher m = pattern.matcher(queryString);
+					if (m.find() && m.groupCount() >= 1) {
+						matchFound = true;
+						String fieldValue = m.group(1);
+						QueryRequest filterQueryRequest = new QueryRequest();
+						filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
+						facetSubQueries.add(filterQueryRequest.getQuery());
+					}
 					if (this.provideFeedback) {
-						String message = "Found " + facetFieldName
-								+ ", stripping from filter and building into query..." + newQuery;
-						feedback.add(
-								new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
-						log.trace(message);
+						feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner",
+								"Found " + facetFieldName + ", stripping from filter and building into query..."));
 					}
 				}
 			}
@@ -357,7 +378,10 @@ public class GenericCompositeJoiner implements QueryTransformer {
 		compJoin.setField(this.joinField);
 
 		// Put all the metadata tables into a big OR query
-		for (String table : this.metadataTables) {
+		for (String table : this.childTables.keySet()) {
+			JoinMode configuredModeForTable = JoinMode.fromExternal(this.childTables.get(table));
+			int boost = this.tableBoosts.containsKey(table) ? tableBoosts.get(table) : 0;
+			Clause c;
 			if (facetFiltersMap.containsKey(table)) {
 				List<Query> facetFilters = facetFiltersMap.get(table);
 				BooleanOrQuery metadataTableQuery = new BooleanOrQuery();
@@ -366,10 +390,9 @@ public class GenericCompositeJoiner implements QueryTransformer {
 				if (facetFilters.size() > 0) {
 					BooleanAndQuery clause = new BooleanAndQuery(metadataTableQuery);
 					clause.add(facetFilters);
-					Clause c = compJoin.addClause(JoinMode.INNER, clause);
-					if (!this.tablesToIncludeInFacetCounts.contains(table)) {
-						c.setFacet(false);
-					}
+					// Clauses will always use INNER joins when a relevant
+					// facet filter has been rewritten into the clause's query
+					c = compJoin.addClause(JoinMode.INNER, clause);
 					if (this.provideFeedback) {
 						String message = "Metadata FacetFilter Queries applied to join clause (ACTUAL CLAUSE): "
 								+ c.prettyFormat() + "with facet set to: " + c.isFacet();
@@ -378,10 +401,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 						log.debug(message);
 					}
 				} else {
-					Clause c = compJoin.addClause(JoinMode.OUTER, metadataTableQuery);
-					if (!this.tablesToIncludeInFacetCounts.contains(table)) {
-						c.setFacet(false);
-					}
+					c = compJoin.addClause(configuredModeForTable, metadataTableQuery);
 					if (this.provideFeedback) {
 						String message = "No metadata facet filters found. Adding clause (ACTUAL CLAUSE): "
 								+ c.prettyFormat() + "with facet set to: " + c.isFacet();
@@ -392,13 +412,22 @@ public class GenericCompositeJoiner implements QueryTransformer {
 				}
 			} else {
 				PhraseQuery clause = new PhraseQuery(FieldNames.TABLE, table);
-				compJoin.addClause(JoinMode.OUTER, clause);
+				c = compJoin.addClause(configuredModeForTable, clause);
+
 				if (this.provideFeedback) {
 					String message = "No metadata facet filters found. Adding clause: " + clause;
 					feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
 					log.debug(message);
 				}
 			}
+			Integer maxDocs = this.maxChildDocs.containsKey(table) ? this.maxChildDocs.get(table) : 10;
+			if (maxDocs >= 0) {
+				c.setRollupLimit(maxDocs);
+			}
+			if (!this.tablesToIncludeInFacetCounts.contains(table)) {
+				c.setFacet(false);
+			}
+			c.setBoost(boost);
 		}
 		return compJoin;
 	}

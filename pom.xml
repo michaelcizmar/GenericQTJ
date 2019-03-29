@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.attivio</groupId>
   <artifactId>GenericQTJ</artifactId>
-  <version>0.2.1</version>
+  <version>0.3.0</version>
 
   <!-- This provides access to the hosted Attivio SDK jars -->
   <repositories>

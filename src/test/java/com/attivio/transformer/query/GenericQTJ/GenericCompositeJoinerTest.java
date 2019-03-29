@@ -2,7 +2,6 @@ package com.attivio.transformer.query.GenericQTJ;
 
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,17 +25,22 @@ public class GenericCompositeJoinerTest {
 	private GenericCompositeJoiner setup() {
 		GenericCompositeJoiner joiner = new GenericCompositeJoiner();
 		joiner.setJoinField("metadataLink");
-		joiner.setMaxChildDocs("-1");
+		Map<String, Integer> maxDocs = new HashMap<String, Integer>();
+		maxDocs.put("metadata", 5);
+		joiner.setMaxChildDocs(maxDocs);
 		joiner.setPrimaryTables(ObjectUtils.newList("dataTable"));
-		List<String> tables = new ArrayList<String>();
-		tables.add("metadata");
-		tables.add("anotherMetadata Table");
-		joiner.setMetadataTables(tables);
+		Map<String, String> tables = new HashMap<String, String>();
+		tables.put("metadata", "INNER");
+		tables.put("anotherMetadata Table", "OUTER");
+		joiner.setChildTables(tables);
 		joiner.setProvideFeedback(true);
 		Map<String, String> metadataFacetFields = new HashMap<String, String>();
 		metadataFacetFields.put("metadata", "topic, company, transaction_amount, date");
 		metadataFacetFields.put("anotherMetadata Table", "people");
-		joiner.setMetadataFacetFields(metadataFacetFields);
+		joiner.setChildTableFacetFields(metadataFacetFields);
+		Map<String, Integer> boosts = new HashMap<String, Integer>();
+		boosts.put("metadata", 5);
+		joiner.setTableBoosts(boosts);
 		return joiner;
 	}
 
@@ -67,12 +71,15 @@ public class GenericCompositeJoinerTest {
 			assertEquals("OR(table:dataTable)", fromQuery.toString());
 
 			assertTrue(join.getClauses().get(0).getQuery() instanceof BooleanOrQuery);
-			assertEquals(join.getClauses().get(0).getMode(), JoinMode.OUTER);
+			assertEquals(join.getClauses().get(0).getMode(), JoinMode.INNER);
+			assertEquals(5, join.getClauses().get(0).getBoost());
+			assertEquals(5, join.getClauses().get(0).getRollupLimit());
 
 			assertTrue(join.getClauses().get(1).getQuery() instanceof BooleanOrQuery);
 			assertEquals(join.getClauses().get(1).getMode(), JoinMode.OUTER);
+			assertEquals(0, join.getClauses().get(1).getBoost());
+			assertEquals(10, join.getClauses().get(1).getRollupLimit());
 		} catch (AttivioException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -118,7 +125,6 @@ public class GenericCompositeJoinerTest {
 			assertTrue(join.getClauses().get(1).getQuery() instanceof BooleanAndQuery);
 			assertEquals(join.getClauses().get(1).getMode(), JoinMode.INNER);
 		} catch (AttivioException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

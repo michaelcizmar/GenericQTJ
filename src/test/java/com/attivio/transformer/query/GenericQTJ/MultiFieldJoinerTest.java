@@ -2,7 +2,6 @@ package com.attivio.transformer.query.GenericQTJ;
 
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,17 +20,19 @@ public class MultiFieldJoinerTest {
 	private MultiFieldJoiner setup() {
 		MultiFieldJoiner joiner = new MultiFieldJoiner();
 		joiner.setJoinField("metadataLink");
-		joiner.setMaxChildDocs("-1");
+		Map<String, Integer> maxDocs = new HashMap<String, Integer>();
+		maxDocs.put("metadata", 5);
+		joiner.setMaxChildDocs(maxDocs);
 		joiner.setPrimaryTables(ObjectUtils.newList("dataTable"));
-		List<String> tables = new ArrayList<String>();
-		tables.add("metadata");
-		tables.add("anotherMetadata Table");
-		joiner.setMetadataTables(tables);
+		Map<String, String> tables = new HashMap<String, String>();
+		tables.put("metadata", "INNER");
+		tables.put("anotherMetadata Table", "OUTER");
+		joiner.setChildTables(tables);
 		joiner.setProvideFeedback(true);
 		Map<String, String> metadataFacetFields = new HashMap<String, String>();
 		metadataFacetFields.put("metadata", "topic, company");
 		metadataFacetFields.put("anotherMetadata Table", "people");
-		joiner.setMetadataFacetFields(metadataFacetFields);
+		joiner.setChildTableFacetFields(metadataFacetFields);
 
 		Map<String, String> overridingJoinFields = new HashMap<String, String>();
 		overridingJoinFields.put("anotherMetadata Table", "uniqueJoinField");

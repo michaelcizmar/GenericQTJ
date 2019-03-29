@@ -18,7 +18,7 @@ import com.attivio.sdk.server.annotation.ConfigurationOption;
 import com.attivio.sdk.server.annotation.ConfigurationOptionInfo;
 import com.attivio.sdk.server.annotation.ConfigurationOption.OptionLevel;
 
-@ConfigurationOptionInfo(displayName = "Multi-Field Metadata Joiner", description = "Transforms query into the equivalend of a Composite Join, but with the ability to specify different join fields for each metadata table", groups = {
+@ConfigurationOptionInfo(displayName = "Multi-Field Table Joiner", description = "Transforms query into the equivalent of a Composite Join, but with the ability to specify different join fields for each metadata table", groups = {
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.PLATFORM_COMPONENT, propertyNames = {
 				"joinFields" }), })
 public class MultiFieldJoiner extends GenericCompositeJoiner {
@@ -46,21 +46,19 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 
 		BooleanOrQuery fullQuery = new BooleanOrQuery();
 		Query userQuery = qr.getQuery();
-		Query initialJoinQuery = this.generateInitialJoin(userQuery, this.primaryTables, this.childTables,
-				this.joinField, this.joinFields, facetFiltersMap, feedback);
+		Query initialJoinQuery = this.generateInitialJoin(userQuery, facetFiltersMap, feedback);
 		if (this.provideFeedback) {
 			feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner",
 					"Adding initial Join Query : " + initialJoinQuery));
 		}
 		fullQuery.add(initialJoinQuery);
 		for (String table : this.childTables.keySet()) {
-			Query metadataJoinQuery = this.generateMetadataJoinQuery(userQuery, this.primaryTables, table,
-					this.joinField, this.joinFields, facetFiltersMap, feedback);
+			Query childTableJoinQuery = this.generateMetadataJoinQuery(userQuery, table, facetFiltersMap, feedback);
 			if (this.provideFeedback) {
 				feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner",
-						"Adding additional Join Query : " + metadataJoinQuery));
+						"Adding additional Join Query : " + childTableJoinQuery));
 			}
-			fullQuery.add(metadataJoinQuery);
+			fullQuery.add(childTableJoinQuery);
 		}
 		if (this.provideFeedback) {
 			feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner",
@@ -93,15 +91,14 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 	 * @return The {@code JoinQuery}
 	 * @throws AttivioException
 	 */
-	private JoinQuery generateInitialJoin(Query userQuery, List<String> primaryTables, Map<String, String> childTables,
-			String joinField, Map<String, String> joinFields, Map<String, List<Query>> facetFiltersMap,
+	private JoinQuery generateInitialJoin(Query userQuery, Map<String, List<Query>> facetFiltersMap,
 			List<QueryFeedback> feedback) throws AttivioException {
 		BooleanAndQuery andQuery = new BooleanAndQuery(userQuery);
 		andQuery.add(super.generateFromQuery());
 		JoinQuery join = new JoinQuery(andQuery);
-		for (String childTable : childTables.keySet()) {
-			JoinMode jm = JoinMode.fromExternal(childTables.get(childTable));
-			join.add(this.generateGenericClause(childTable, joinField, jm, joinFields, facetFiltersMap));
+		for (String childTable : this.childTables.keySet()) {
+			JoinMode jm = JoinMode.fromExternal(this.childTables.get(childTable));
+			join.add(this.generateGenericClause(childTable, this.joinField, jm, this.joinFields, facetFiltersMap));
 		}
 		return join;
 	}
@@ -120,7 +117,7 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 	 *            List of metadata tables that should be joined to the primary
 	 *            documents
 	 * @param joinField
-	 *            The defaul field to join metadata fields on
+	 *            The default field to join metadata fields on
 	 * @param joinFields
 	 *            Map of table to field for when the defaul join field shouldn't be
 	 *            used
@@ -130,9 +127,8 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 	 * @return A {@code JoinQuery}
 	 * @throws AttivioException
 	 */
-	private JoinQuery generateMetadataJoinQuery(Query userQuery, List<String> primaryTables, String metadataQueryTable,
-			String joinField, Map<String, String> joinFields, Map<String, List<Query>> facetFiltersMap,
-			List<QueryFeedback> feedback) throws AttivioException {
+	private JoinQuery generateMetadataJoinQuery(Query userQuery, String metadataQueryTable,
+			Map<String, List<Query>> facetFiltersMap, List<QueryFeedback> feedback) throws AttivioException {
 		Query primaryTableQuery = super.generateFromQuery();
 		JoinQuery joinQuery = new JoinQuery(primaryTableQuery);
 		BooleanAndQuery andQuery = new BooleanAndQuery(new PhraseQuery(FieldNames.TABLE, metadataQueryTable));
@@ -140,16 +136,15 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 		if (facetFiltersMap.containsKey(metadataQueryTable)) {
 			andQuery.add(facetFiltersMap.get(metadataQueryTable));
 		}
-		if (joinFields.containsKey(metadataQueryTable)) {
-			joinField = joinFields.get(metadataQueryTable);
-		}
-		joinQuery.add(new JoinClause(andQuery, JoinMode.INNER, joinField, joinField));
+		String joinKeyField = joinFields.containsKey(metadataQueryTable) ? joinFields.get(metadataQueryTable)
+				: this.joinField;
+		joinQuery.add(new JoinClause(andQuery, JoinMode.INNER, joinKeyField, joinKeyField));
 		for (String childTable : this.childTables.keySet()) {
 			if (childTable.equals(metadataQueryTable)) {
 				continue;
 			}
 			JoinMode jm = JoinMode.fromExternal(this.childTables.get(childTable));
-			joinQuery.add(this.generateGenericClause(childTable, joinField, jm, joinFields, facetFiltersMap));
+			joinQuery.add(this.generateGenericClause(childTable, joinKeyField, jm, joinFields, facetFiltersMap));
 		}
 		return joinQuery;
 	}

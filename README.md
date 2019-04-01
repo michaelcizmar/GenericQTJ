@@ -7,9 +7,9 @@ There are two query transformers: the Generic Composite Joiner, and the Multi-Fi
 ### Generic Composite Joiner
 The Generic Composite Joiner transforms the query into a CompositeJoin Query. It can handle joins across multiple tables, and can also handle use cases where facet filtering is based off of fields on the child documents. 
 
-![Generic Composite Joiner](https://github.com/attivio/GenericQTJ/blob/master/screenshots/generic_composite_joiner_config_2.PNG)
-
 ##### Component Configuration Options
+
+![Generic Composite Joiner](https://github.com/attivio/GenericQTJ/blob/master/screenshots/generic_composite_joiner_config_2.PNG)
 
 | Configuration Property | Description |
 | --- | --- |
@@ -19,7 +19,12 @@ The Generic Composite Joiner transforms the query into a CompositeJoin Query. It
 | Join Field | The field to join the tables on. All tables must join on the same field, as this is required by the CompositeJoin syntax. |
 | Max Child Docs | A map of table name to the maximum number of records to join to a parent record from that table. Set to -1 for all records. |
 | Child Table Facet Fields | Map of table names to a comma separated list of fields from that table that will be used for facets. <br> Child table facets need to be configured because of the way the query changed for facet filters from child records vs. parent records (flipping OUTER clauses to INNER clauses, how facet counts are aggregfated, etc. |
-| Facetable Tables | List of tables used for child records whose fields should be used in facet calculations. |
+| Facetable Tables | List of tables used for child records whose fields should be used in facet calculations.|
+
+##### Advanced Configuration Options
+
+| Configuration Property | Description |
+| --- | --- |
 | Ignore Advanced Queries (Advanced Tab) | If set to *true*, advanced queries will not be modified by this transformer.  |
 | Provide Query Feedback (Advanced Tab) | If set to *true*, detailed feedback will be provided (useful for troubleshooting) |
 | Table Boost Amounts (Advanced Tab) | Map of table name to the boost to apply to hits from this table's clause |
@@ -31,8 +36,15 @@ The Multi-Field Joiner transforms the query into a JOIN query (regular JOIN, not
 
 The Multi-Field Joiner extends the Generic Composite Joiner, so the configuration is almost exactly the same. The only difference is that the Multi-Field Joiner has an additional property for mapping table names to the field name to use for the join key. 
 
+##### Component Configuration Options
+
 | Configuration Property | Description |
 | --- | --- |
 | Child Table Join Fields | Map of table names to the fields that they will be joined on. |
+
+##### Advanced Configuration Options
+
+| Configuration Property | Description |
+| --- | --- |
 | Composite Mode (Advanced Tab) | False by default. If turned on, will generate a separate join query for each table, where the search term will be searched for in that table. This is useful if you want to search across all tables, but can't use the Composite Join because the tables need to be joined on separate fields. However, carefully consider performance impacts before turning this on, as it may substantially slow down your queries. |
 

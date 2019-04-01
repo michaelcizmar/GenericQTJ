@@ -3,6 +3,10 @@ package com.attivio.transformer.query.GenericQTJ;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.attivio.sdk.AttivioException;
 import com.attivio.sdk.schema.FieldNames;
 import com.attivio.sdk.search.QueryFeedback;
@@ -20,10 +24,15 @@ import com.attivio.sdk.server.annotation.ConfigurationOption.OptionLevel;
 
 @ConfigurationOptionInfo(displayName = "Multi-Field Table Joiner", description = "Transforms query into the equivalent of a Composite Join, but with the ability to specify different join fields for each metadata table", groups = {
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.PLATFORM_COMPONENT, propertyNames = {
-				"joinFields" }), })
+				"joinFields" }),
+		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.ADVANCED, propertyNames = {
+				"mimickComposite" }) })
 public class MultiFieldJoiner extends GenericCompositeJoiner {
 
 	private Map<String, String> joinFields = new HashMap<String, String>();
+	private boolean mimickComposite = false;
+
+	private Logger log = LoggerFactory.getLogger(this.getClass());
 
 	@ConfigurationOption(displayName = "Default Join Field", description = "The default Field to join on (must be the same field across both sources)", optionLevel = OptionLevel.Required)
 	@Override
@@ -40,31 +49,49 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 		this.joinFields = joinFields;
 	}
 
+	@ConfigurationOption(displayName = "Composite Mode", description = "Should the search term be searched for in all child tables as well, similar to the behavior of the CompositeJoin. WARNING: Consider performance impacts before turning this on", formEntryClass = ConfigurationOption.FALSE_SWITCH_VALUE)
+	public boolean isMimickComposite() {
+		return mimickComposite;
+	}
+
+	public void setMimickComposite(boolean mimickComposite) {
+		this.mimickComposite = mimickComposite;
+	}
+
 	@Override
 	protected Query buildCompositeJoinQuery(Map<String, List<Query>> facetFiltersMap, QueryRequest qr,
 			List<QueryFeedback> feedback) throws AttivioException {
 
-		BooleanOrQuery fullQuery = new BooleanOrQuery();
+		Query completeQuery;
 		Query userQuery = qr.getQuery();
 		Query initialJoinQuery = this.generateInitialJoin(userQuery, facetFiltersMap, feedback);
 		if (this.provideFeedback) {
-			feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner",
-					"Adding initial Join Query : " + initialJoinQuery));
+			String message = "Adding initial Join Query : " + initialJoinQuery;
+			feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner", message));
+			log.trace(message);
 		}
-		fullQuery.add(initialJoinQuery);
-		for (String table : this.childTables.keySet()) {
-			Query childTableJoinQuery = this.generateMetadataJoinQuery(userQuery, table, facetFiltersMap, feedback);
-			if (this.provideFeedback) {
-				feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner",
-						"Adding additional Join Query : " + childTableJoinQuery));
+		if (this.mimickComposite) {
+			BooleanOrQuery orWrapperQuery = new BooleanOrQuery();
+			orWrapperQuery.add(initialJoinQuery);
+			for (String table : this.childTables.keySet()) {
+				Query childTableJoinQuery = this.generateMetadataJoinQuery(userQuery, table, facetFiltersMap, feedback);
+				if (this.provideFeedback) {
+					String message = "Adding additional Join Query : " + childTableJoinQuery;
+					feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner", message));
+					log.trace(message);
+				}
+				orWrapperQuery.add(childTableJoinQuery);
 			}
-			fullQuery.add(childTableJoinQuery);
+			completeQuery = orWrapperQuery;
+		} else {
+			completeQuery = initialJoinQuery;
 		}
 		if (this.provideFeedback) {
-			feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner",
-					"Setting final Query : " + fullQuery));
+			String message = "Setting final Query : " + completeQuery;
+			feedback.add(new QueryFeedback(this.getClass().getName(), "MultiFieldJoiner", message));
+			log.trace(message);
 		}
-		return fullQuery;
+		return completeQuery;
 	}
 
 	/**
@@ -74,17 +101,6 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 	 * 
 	 * @param userQuery
 	 *            The original query from the user
-	 * @param primaryTables
-	 *            The primary data table that metadata should be joined to
-	 * @param childTables
-	 *            Map of metadata tables that should be joined to the primary
-	 *            documents to the join mode that should be used for the clause for
-	 *            that table
-	 * @param joinField
-	 *            The defaul field to join metadata fields on
-	 * @param joinFields
-	 *            Map of table to field for when the defaul join field shouldn't be
-	 *            used
 	 * @param facetFiltersMap
 	 *            Facet Queries that should be added to the join clauses
 	 * @param feedback

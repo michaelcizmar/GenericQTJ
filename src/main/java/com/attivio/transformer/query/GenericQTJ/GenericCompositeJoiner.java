@@ -206,7 +206,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 			Map<String, List<Query>> facetFilters = this.extractMetadataFacetFilterQueries(qr, feedback);
 			Query joinQuery = this.buildCompositeJoinQuery(facetFilters, qr, feedback);
 			if (this.provideFeedback) {
-				String message = "Final Composite Join Query: " + joinQuery.getQueryString();
+				String message = "Final Join Query: " + joinQuery;
 				feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
 				log.debug(message);
 			}
@@ -330,6 +330,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 					if (m.find() && m.groupCount() >= 1) {
 						matchFound = true;
 						String fieldValue = m.group(1);
+						fieldValue = fieldValue.substring(0, fieldValue.length() - 1);
 						QueryRequest filterQueryRequest = new QueryRequest();
 						filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
 						facetSubQueries.add(filterQueryRequest.getQuery());

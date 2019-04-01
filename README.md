@@ -32,4 +32,5 @@ The Multi-Field Joiner extends the Generic Composite Joiner, so the configuratio
 | Configuration Property | Description |
 | --- | --- |
 | Child Table Join Fields | Map of table names to the fields that they will be joined on. |
+| Composite Mode (Advanced Tab) | False by default. If turned on, will generate a separate join query for each table, where the search term will be searched for in that table. This is useful if you want to search across all tables, but can't use the Composite Join because the tables need to be joined on separate fields. However, carefully consider performance impacts before turning this on, as it may substantially slow down your queries. |
 

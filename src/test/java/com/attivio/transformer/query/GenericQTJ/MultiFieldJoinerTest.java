@@ -58,7 +58,6 @@ public class MultiFieldJoinerTest {
 				System.out.println(feedbackItem);
 			}
 		} catch (AttivioException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -90,7 +89,6 @@ public class MultiFieldJoinerTest {
 				System.out.println(feedbackItem);
 			}
 		} catch (AttivioException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

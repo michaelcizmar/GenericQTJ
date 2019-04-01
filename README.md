@@ -9,6 +9,8 @@ The Generic Composite Joiner transforms the query into a CompositeJoin Query. It
 
 ![Generic Composite Joiner](https://github.com/attivio/GenericQTJ/blob/master/screenshots/generic_composite_joiner_config_2.PNG)
 
+##### Component Configuration Options
+
 | Configuration Property | Description |
 | --- | --- |
 | Primary Tables | The tables that get used in the FROM clause of the join. If there are multiple tables listed here, they get put into an OR query. <br> **Note:** Either this property or Non-Primary Tables must be provided. |

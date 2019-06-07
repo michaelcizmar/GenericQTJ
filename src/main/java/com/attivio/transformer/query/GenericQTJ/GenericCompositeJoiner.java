@@ -3,8 +3,10 @@ package com.attivio.transformer.query.GenericQTJ;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,14 +23,19 @@ import com.attivio.sdk.search.query.BooleanAndQuery;
 import com.attivio.sdk.search.query.BooleanNotQuery;
 import com.attivio.sdk.search.query.BooleanOrQuery;
 import com.attivio.sdk.search.query.CompositeJoinQuery;
+import com.attivio.sdk.search.query.JoinClause;
 import com.attivio.sdk.search.query.CompositeJoinQuery.Clause;
 import com.attivio.sdk.search.query.JoinMode;
+import com.attivio.sdk.search.query.JoinQuery;
 import com.attivio.sdk.search.query.PhraseQuery;
 import com.attivio.sdk.search.query.Query;
+import com.attivio.sdk.search.query.QueryString;
+import com.attivio.sdk.search.query.SubQuery;
 import com.attivio.sdk.server.annotation.ConfigurationOption;
 import com.attivio.sdk.server.annotation.ConfigurationOption.OptionLevel;
 import com.attivio.sdk.server.annotation.ConfigurationOptionInfo;
 import com.attivio.sdk.server.component.query.QueryTransformer;
+import com.attivio.sdk.util.BaseTypesList;
 
 /**
  * @author brandon.bogan
@@ -39,7 +46,8 @@ import com.attivio.sdk.server.component.query.QueryTransformer;
 				"primaryTables", "nonPrimaryTables", "childTables", "joinField", "maxChildDocs",
 				"childTableFacetFields", "tablesToIncludeInFacetCounts" }),
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.ADVANCED, propertyNames = {
-				"ignoreAdvancedQueries", "provideFeedback", "tableBoosts" }) })
+				"ignoreAdvancedQueries", "provideFeedback", "collectionFieldName", "strictChildMatching", "allowChildDocOnlySearch",
+				"tableBoosts" }) })
 public class GenericCompositeJoiner implements QueryTransformer {
 
 	private Logger log = LoggerFactory.getLogger(this.getClass());
@@ -51,9 +59,20 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	protected Map<String, Integer> maxChildDocs;
 	protected boolean provideFeedback;
 	protected Map<String, List<String>> childTableFacetFields = new HashMap<String, List<String>>();
+	protected String collectionFieldName = FieldNames.TABLE;
 	protected boolean ignoreAdvancedQueries;
 	private List<String> tablesToIncludeInFacetCounts = new ArrayList<String>();
 	private Map<String, Integer> tableBoosts;
+	private boolean strictChildMatching;
+	private boolean allowChildDocOnlySearch;
+
+	public static String STRICT_QUERY_PROPERTY_NAME = "wasStrictJoin";
+	public static String CHILD_DOC_MATCH_MESSAGE_NAME = "matchInChildDocument";
+
+	private static String FACET_FILTER_PROPERTY_NAME = "facetFilters";
+	private static String FILTER_PROPERTY_NAME = "filters";
+	private static String ORIGINAL_QUERY_PROPERTY_NAME = "original_query";
+	private static String ORIGINAL_QUERY_LANGUAGE_NAME = "original_language";
 
 	/**
 	 * @return the primaryTable
@@ -114,7 +133,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	/**
 	 * @return the maxChildDocs
 	 */
-	@ConfigurationOption(displayName = "Max Child Docs", description = "Max number of child docs to relate to parent doc. Set to -1 for no limit.", optionLevel = OptionLevel.Required, formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
+	@ConfigurationOption(displayName = "Max Child Docs", description = "Max number of child docs to relate to parent doc. Set to -1 for no limit. Defaults to 0 (no children) if unset", optionLevel = OptionLevel.Required, formEntryClass = ConfigurationOption.STRING_TO_STRING_MAP)
 	public Map<String, Integer> getMaxChildDocs() {
 		return maxChildDocs;
 	}
@@ -155,6 +174,15 @@ public class GenericCompositeJoiner implements QueryTransformer {
 		this.childTableFacetFields = tableFacets;
 	}
 
+	@ConfigurationOption(displayName = "Collection Field Name", description = "Name of field to use to differentiate collections/tables of content (this will be normally be the 'table' field")
+	public String getCollectionFieldName() {
+		return collectionFieldName;
+	}
+
+	public void setCollectionFieldName(String collectionFieldName) {
+		this.collectionFieldName = collectionFieldName;
+	}
+
 	@ConfigurationOption(displayName = "Provide Query Feedback", description = "Should detailed query feedback be provided", formEntryClass = ConfigurationOption.FALSE_SWITCH_VALUE)
 	public boolean isProvideFeedback() {
 		return provideFeedback;
@@ -191,6 +219,24 @@ public class GenericCompositeJoiner implements QueryTransformer {
 		this.tableBoosts = tableBoosts;
 	}
 
+	@ConfigurationOption(displayName = "Use Strict Join", description = "If there is no match on the parent, should only child documents matching the query term be returned", formEntryClass = ConfigurationOption.FALSE_SWITCH_VALUE)
+	public boolean isStrictChildMatching() {
+		return strictChildMatching;
+	}
+
+	public void setStrictChildMatching(boolean strictChildMatching) {
+		this.strictChildMatching = strictChildMatching;
+	}
+
+	@ConfigurationOption(displayName = "Allow Child Doc Only Search", description = "If 'Use Strict Join' is set to true, this will allow the initial pass to only search child documents. If you want to subsequently search parent documents when there's no results on the children, use the 'Resubmit Strict Join' response transformer to resubmit so all docs can be searched.", formEntryClass = ConfigurationOption.FALSE_SWITCH_VALUE)
+	public boolean isAllowChildDocOnlySearch() {
+		return allowChildDocOnlySearch;
+	}
+
+	public void setAllowChildDocOnlySearch(boolean allowChildDocOnlySearch) {
+		this.allowChildDocOnlySearch = allowChildDocOnlySearch;
+	}
+
 	@Override
 	public List<QueryFeedback> processQuery(QueryRequest qr) throws AttivioException {
 		List<QueryFeedback> feedback = new ArrayList<QueryFeedback>();
@@ -202,7 +248,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 				log.trace(message);
 			}
 		} else {
-			qr.setProperty("join.facet", "FULL");
+			// qr.setProperty("join.facet", "FULL");
 			Map<String, List<Query>> facetFilters = this.extractMetadataFacetFilterQueries(qr, feedback);
 			Query joinQuery = this.buildCompositeJoinQuery(facetFilters, qr, feedback);
 			if (this.provideFeedback) {
@@ -245,9 +291,51 @@ public class GenericCompositeJoiner implements QueryTransformer {
 
 		// Collect both Filters and FacetFilters that have been applied to the query
 		List<Query> originalFilters = qr.getFilters();
-		List<Query> newFilters = new ArrayList<Query>();
+
+		if (qr.getResubmits() > 0 && qr.hasProperty(FILTER_PROPERTY_NAME)) {
+			Object filterPropValue = qr.getProperty(FILTER_PROPERTY_NAME);
+			if (filterPropValue instanceof List<?>) {
+				originalFilters = new ArrayList<Query>();
+				// It has to be a list because setting a List<Query> as a QR property isn't
+				// supported
+				List<String> filterStringList = (List<String>) filterPropValue;
+				for (String s : filterStringList) {
+					Query q = new QueryString(s);
+					originalFilters.add(q);
+				}
+			}
+		} else {
+			// We do this so that if the query gets resubmitted we can access the original
+			// filters
+			List<String> originalFiltersAsStringList = new BaseTypesList<String>();
+			for (Query q : originalFilters) {
+				originalFiltersAsStringList.add(q.getQueryString());
+			}
+			qr.setProperty(FILTER_PROPERTY_NAME, originalFiltersAsStringList);
+		}
 
 		List<FacetFilter> originalFacetFilters = qr.getFacetFilters();
+
+		if (qr.getResubmits() > 0 && qr.hasProperty(FACET_FILTER_PROPERTY_NAME)) {
+			Object facetFilterPropValue = qr.getProperty(FACET_FILTER_PROPERTY_NAME);
+			if (facetFilterPropValue instanceof List<?>) {
+				List<String> facetFiltersAsString = new BaseTypesList<String>();
+				originalFacetFilters = new ArrayList<FacetFilter>();
+				for (String ff : facetFiltersAsString) {
+					originalFacetFilters.add(FacetFilter.valueOf(ff));
+				}
+			}
+		} else {
+			// We do this so that if the query gets resubmitted we can access the original
+			// filters
+			List<String> originalFiltersAsStringList = new BaseTypesList<String>();
+			for (FacetFilter ff : originalFacetFilters) {
+				originalFiltersAsStringList.add(ff.toString());
+			}
+			qr.setProperty(FILTER_PROPERTY_NAME, originalFiltersAsStringList);
+		}
+
+		List<Query> newFilters = new ArrayList<Query>();
 		List<FacetFilter> newFacetFilters = new ArrayList<FacetFilter>();
 
 		// Handle the filter queries first. These are a little more complex to get the
@@ -260,7 +348,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 		// fields, extract them into specific queries that we can leverage within our
 		// composite join.
 		for (Query filterQuery : originalFilters) {
-			String queryString = filterQuery.getQueryString();
+			String queryString = filterQuery.toString();
 			boolean matchFound = false;
 			for (String facetFieldName : fieldNames) {
 				if (queryString.contains(facetFieldName)) {
@@ -270,23 +358,27 @@ public class GenericCompositeJoiner implements QueryTransformer {
 								new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
 						log.trace(message);
 					}
-					String regex = facetFieldName + ":(.*)";
-					Pattern pattern = Pattern.compile(regex);
-					Matcher m = pattern.matcher(queryString);
-					if (m.find() && m.groupCount() >= 1) {
-						matchFound = true;
-						String fieldValue = m.group(1);
-						QueryRequest filterQueryRequest = new QueryRequest();
-						filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
-						facetSubQueries.add(filterQueryRequest.getQuery());
-						if (this.provideFeedback) {
-							String message = "Found " + facetFieldName
-									+ ", stripping from filter and building into query...";
-							feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner",
-									message));
-							log.trace(message);
-						}
+					// String regex = facetFieldName + ":(.*)\"";
+					// Pattern pattern = Pattern.compile(regex);
+					// Matcher m = pattern.matcher(queryString);
+					// if (m.find() && m.groupCount() >= 1) {
+					 matchFound = true;
+					// String fieldValue = m.group(1);
+					// // QueryRequest filterQueryRequest = new QueryRequest();
+					// // filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
+					// // facetSubQueries.add(filterQueryRequest.getQuery());
+					// QueryString newFilterQuery = new QueryString(facetFieldName + ":" +
+					// fieldValue);
+					// facetSubQueries.add(newFilterQuery);
+					facetSubQueries.add(filterQuery);
+					if (this.provideFeedback) {
+						String message = "Found " + facetFieldName
+								+ ", stripping from filter and building into query...";
+						feedback.add(
+								new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner", message));
+						log.trace(message);
 					}
+					// }
 				}
 			}
 			if (!matchFound) {
@@ -314,7 +406,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 						log.trace(message);
 					}
 					// Query newQuery = f.getFilter();
-					//// facetSubQueries.add(newQuery);
+					// facetSubQueries.add(newQuery);
 					// if (this.provideFeedback) {
 					// String message = "Found " + facetFieldName
 					// + ", stripping from filter and building into query..." + newQuery;
@@ -331,9 +423,25 @@ public class GenericCompositeJoiner implements QueryTransformer {
 						matchFound = true;
 						String fieldValue = m.group(1);
 						fieldValue = fieldValue.substring(0, fieldValue.length() - 1);
-						QueryRequest filterQueryRequest = new QueryRequest();
-						filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
-						facetSubQueries.add(filterQueryRequest.getQuery());
+						fieldValue = this.handleRangeFacetFilters(fieldValue);
+						Query newQueryString = new QueryString(facetFieldName + ":" + fieldValue);
+						SubQuery newQuery = new SubQuery(newQueryString);
+						// This is so the facet filter queries don't show up in Search Analytics
+						newQuery.setParameter("abc.userquery", false);
+						facetSubQueries.add(newQuery);
+						if (this.provideFeedback) {
+							String message = "Found " + facetFieldName
+									+ ", stripping from filter and building into query..." + newQuery;
+							feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner",
+									message));
+							log.trace(message);
+						}
+						// QueryRequest filterQueryRequest = new QueryRequest();
+						// filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
+						// facetSubQueries.add(filterQueryRequest.getQuery());
+
+						// QueryString qs = new QueryString(facetFieldName + ":" + "[0 TO 2000]");
+						// facetSubQueries.add(qs);
 					}
 					if (this.provideFeedback) {
 						feedback.add(new QueryFeedback(this.getClass().getSimpleName(), "GenericCompositeJoiner",
@@ -356,13 +464,50 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	}
 
 	/**
+	 * For facet filters coming from Range Facets, we need to extract the RANGE
+	 * query and rewrite it to the standard range syntax from simple query language
+	 * (like [], [}, etc.)
+	 * 
+	 * @param fieldValue
+	 *            The field value to conditionally rewrite into a proper range query
+	 *            if necessary
+	 */
+	private String handleRangeFacetFilters(String fieldValue) {
+		String returnValue = fieldValue;
+		String regexForNumericRanges = "RANGE\\((.*),\\s{0,1}(.*),\\s{0,1}upper=(\\w*)\\)";
+		Pattern pForNumRanges = Pattern.compile(regexForNumericRanges);
+		Matcher mForNumRanges = pForNumRanges.matcher(fieldValue);
+		if (mForNumRanges.find() && mForNumRanges.groupCount() >= 3) {
+			// We found a range
+			String rangeStart = mForNumRanges.group(1);
+			String rangeEnd = mForNumRanges.group(2);
+			String upperBoundryType = mForNumRanges.group(3);
+			if (upperBoundryType.equals("exclusive")) {
+				returnValue = String.format("[%s TO %s}", rangeStart, rangeEnd);
+			} else if (upperBoundryType.equals("inclusive")) {
+				returnValue = String.format("[%s TO %s]", rangeStart, rangeEnd);
+			}
+		}
+		log.trace(String.format("Rewrote field value from facet filter query from %s to %s", fieldValue, returnValue));
+		return returnValue;
+	}
+
+	/**
 	 * Constructs a {@code CompositeJoinQuery} based on the configurations and what
 	 * facet filters were found that pertain to the metadata. <br>
 	 * <br>
 	 * If there are no metadata facet filters, it constructs an {@code OUTER JOIN}.
 	 * However, if there are metadata facets, it constructs an {@code INNER JOIN},
 	 * such that only the documents in the {@code FROM} clause that have the
-	 * specified metadata attribute(s) are returned.
+	 * specified metadata attribute(s) are returned. <br>
+	 * <br>
+	 * If {@code strictChildMatching} is enabled, it will generate a regular
+	 * {@code JOIN} query for each child table, and put them all in an {@code OR}
+	 * query. It will also set a propert on the {@code QUeryRequest} noting that a
+	 * strict join was used, incase looping back to relax the join is enabled.<br>
+	 * <br>
+	 * <b>Note:</b>This strict join will only match on hits in the child tables, not
+	 * the parent table. Looping back to relax the query will be required for that.
 	 * 
 	 * @param facetFilters
 	 * @param qr
@@ -372,6 +517,25 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	 */
 	protected Query buildCompositeJoinQuery(Map<String, List<Query>> facetFiltersMap, QueryRequest qr,
 			List<QueryFeedback> feedback) throws AttivioException {
+
+		if (qr.getResubmits() > 0 && qr.hasProperty(ORIGINAL_QUERY_PROPERTY_NAME)) {
+			String originalQueryAsString = qr.getProperty(ORIGINAL_QUERY_PROPERTY_NAME, "*:*");
+			String queryLanguage = qr.getProperty(ORIGINAL_QUERY_LANGUAGE_NAME, "advanced");
+			qr.setQuery(originalQueryAsString, queryLanguage);
+		} else {
+			// If the query gets resubmitted we'll need this, since we don't want to use the
+			// JOIN query as the query in our new JOIN
+			qr.setProperty(ORIGINAL_QUERY_PROPERTY_NAME, qr.getQueryString());
+			qr.setProperty(ORIGINAL_QUERY_LANGUAGE_NAME, qr.getQueryLanguage());
+		}
+
+		// If we need to build a strict join we need to build the query differently than
+		// using a normal composite join
+		boolean shouldBeComposite = !this.strictChildMatching || qr.getQuery().toString().contains("*:*")
+				|| qr.getQuery().toString().equals("*");
+		if (!shouldBeComposite) {
+			return this.buildStrictChildMatchingJoin(facetFiltersMap, qr, feedback);
+		}
 		CompositeJoinQuery compJoin = new CompositeJoinQuery(qr.getQuery());
 
 		Query fromQuery = this.generateFromQuery();
@@ -385,9 +549,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 			Clause c;
 			if (facetFiltersMap.containsKey(table)) {
 				List<Query> facetFilters = facetFiltersMap.get(table);
-				BooleanOrQuery metadataTableQuery = new BooleanOrQuery();
-				PhraseQuery tableQuery = new PhraseQuery(FieldNames.TABLE, table);
-				metadataTableQuery.add(tableQuery);
+				PhraseQuery metadataTableQuery = new PhraseQuery(this.collectionFieldName, table);
 				if (facetFilters.size() > 0) {
 					BooleanAndQuery clause = new BooleanAndQuery(metadataTableQuery);
 					clause.add(facetFilters);
@@ -412,7 +574,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 					}
 				}
 			} else {
-				PhraseQuery clause = new PhraseQuery(FieldNames.TABLE, table);
+				PhraseQuery clause = new PhraseQuery(this.collectionFieldName, table);
 				c = compJoin.addClause(configuredModeForTable, clause);
 
 				if (this.provideFeedback) {
@@ -434,25 +596,144 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	}
 
 	/**
+	 * Generates an {@code BooleanOrQuery} with multiple {@code JoinQueries} in it.
+	 * There will be one {@code JoinQuery} for each child table, plus one for the
+	 * parents. This query will result in matching on all parent documents where the
+	 * match is found, but if the match is only found in the child documents, only
+	 * those children will be returned. This is different from the normal
+	 * {@code CompositeJoin} behavior where all matches from a child table are
+	 * returned as long as a match is found on at least one of them.
+	 * 
+	 * @param facetFiltersMap
+	 *            A map of child table name to a list of queries to add to that
+	 *            child table's join clause
+	 * @param qr
+	 * @param feedback
+	 * @return
+	 */
+	private Query buildStrictChildMatchingJoin(Map<String, List<Query>> facetFiltersMap, QueryRequest qr,
+			List<QueryFeedback> feedback) {
+		boolean firstTimeThrough = !qr.hasProperty(STRICT_QUERY_PROPERTY_NAME)
+				|| !qr.getProperty(STRICT_QUERY_PROPERTY_NAME, false);
+		boolean searchOnlyParentTable = firstTimeThrough && this.allowChildDocOnlySearch;
+		boolean searchOnlyChildren = !firstTimeThrough && this.allowChildDocOnlySearch;
+		if (searchOnlyParentTable) {
+			return this.buildJoinForParentTableOnly(facetFiltersMap, qr, feedback, true);
+		}
+		BooleanOrQuery orQuery = new BooleanOrQuery();
+		Query fromQuery = this.generateFromQuery();
+		Set<String> tablesToLoopThrough = new HashSet<String>(this.childTables.keySet());
+		for (String tableToSearchIn : tablesToLoopThrough) {
+			JoinQuery join = new JoinQuery();
+			join.setQuery(fromQuery);
+			for (String childTable : this.childTables.keySet()) {
+				JoinMode joinMode = JoinMode.fromExternal(this.childTables.get(childTable));
+				PhraseQuery basicTableQuery = new PhraseQuery(this.collectionFieldName, childTable);
+				Query clauseQuery;
+				if (childTable.equals(tableToSearchIn)) {
+					BooleanAndQuery andQuery = new BooleanAndQuery(basicTableQuery);
+					SubQuery userQuery = new SubQuery(qr.getQuery());
+					userQuery.setParameter("abc.userquery", true);
+					andQuery.add(userQuery);
+					if (facetFiltersMap.containsKey(childTable)) {
+						andQuery.add(facetFiltersMap.get(childTable));
+					}
+					clauseQuery = andQuery;
+					joinMode = JoinMode.INNER;
+				} else if (facetFiltersMap.containsKey(childTable) && facetFiltersMap.get(childTable).size() > 0) {
+					BooleanAndQuery andQuery = new BooleanAndQuery(basicTableQuery);
+					andQuery.add(facetFiltersMap.get(childTable));
+					clauseQuery = andQuery;
+					joinMode = JoinMode.INNER;
+				} else {
+					clauseQuery = basicTableQuery;
+				}
+				JoinClause c = new JoinClause(clauseQuery, joinMode, this.joinField, this.joinField);
+				if (this.tableBoosts.containsKey(childTable)) {
+					c.setBoost(this.tableBoosts.get(childTable));
+				}
+				Integer maxDocs = this.maxChildDocs.containsKey(childTable) ? this.maxChildDocs.get(childTable) : 10;
+				if (maxDocs >= 0) {
+					c.setRollupLimit(maxDocs);
+				}
+				join.add(c);
+			}
+			String message = "Adding join query to strict or query: " + join;
+			log.trace(message);
+			if (this.provideFeedback) {
+				feedback.add(new QueryFeedback(this.getClass().getCanonicalName(), "Generatd Join Query", message));
+			}
+			orQuery.add(join);
+		}
+		if (!searchOnlyChildren) {
+			orQuery.add(this.buildJoinForParentTableOnly(facetFiltersMap, qr, feedback, false));
+		} else {
+			feedback.add(new QueryFeedback(this.getClass().getCanonicalName(), CHILD_DOC_MATCH_MESSAGE_NAME,
+					"The match is in the child documents"));
+		}
+		qr.setProperty(STRICT_QUERY_PROPERTY_NAME, false);
+		return orQuery;
+	}
+
+	private Query buildJoinForParentTableOnly(Map<String, List<Query>> facetFiltersMap, QueryRequest qr,
+			List<QueryFeedback> feedback, boolean modifyMessages) {
+		Query fromQuery = this.generateFromQuery();
+		BooleanAndQuery combinedFromQuery = new BooleanAndQuery(fromQuery);
+		SubQuery userQuery = new SubQuery(qr.getQuery());
+		userQuery.setParameter("abc.userquery", true);
+		combinedFromQuery.add(userQuery);
+		JoinQuery join = new JoinQuery();
+		join.setQuery(combinedFromQuery);
+		for (String childTable : this.childTables.keySet()) {
+			JoinMode joinMode = JoinMode.fromExternal(this.childTables.get(childTable));
+			PhraseQuery basicTableQuery = new PhraseQuery(this.collectionFieldName, childTable);
+			Query clauseQuery;
+			if (facetFiltersMap.containsKey(childTable) && facetFiltersMap.get(childTable).size() > 0) {
+				BooleanAndQuery andQuery = new BooleanAndQuery(basicTableQuery);
+				andQuery.add(facetFiltersMap.get(childTable));
+				clauseQuery = andQuery;
+				joinMode = JoinMode.INNER;
+			} else {
+				clauseQuery = basicTableQuery;
+			}
+			JoinClause c = new JoinClause(clauseQuery, joinMode, this.joinField, this.joinField);
+			if (this.tableBoosts.containsKey(childTable)) {
+				c.setBoost(this.tableBoosts.get(childTable));
+			}
+			Integer maxDocs = this.maxChildDocs.containsKey(childTable) ? this.maxChildDocs.get(childTable) : 10;
+			if (maxDocs >= 0) {
+				c.setRollupLimit(maxDocs);
+			}
+			join.add(c);
+		}
+		if (modifyMessages) {
+			qr.setProperty(STRICT_QUERY_PROPERTY_NAME, true);
+		}
+		return join;
+	}
+
+	/**
 	 * Depending on whether the primaryTables or nonPrimaryTables field is
 	 * populated, generates a query that will only select records from the
 	 * appropriate table(s), which can then be used as the query for the "FROM"
 	 * table
 	 * 
-	 * @return
-	 * @throws AttivioException
+	 * @return the primary query to use in the join
 	 */
-	protected Query generateFromQuery() throws AttivioException {
+	protected Query generateFromQuery() {
 		if (this.primaryTables != null && this.primaryTables.size() > 0) {
+			if (this.primaryTables.size() == 1) {
+				return new PhraseQuery(this.collectionFieldName, this.primaryTables.get(0));
+			}
 			BooleanOrQuery orQ = new BooleanOrQuery();
 			for (String tableName : primaryTables) {
-				orQ.add(new PhraseQuery(FieldNames.TABLE, tableName));
+				orQ.add(new PhraseQuery(this.collectionFieldName, tableName));
 			}
 			return orQ;
 		} else {
 			BooleanOrQuery orQ = new BooleanOrQuery();
 			for (String tableName : this.nonPrimaryTables) {
-				orQ.add(new PhraseQuery(FieldNames.TABLE, tableName));
+				orQ.add(new PhraseQuery(this.collectionFieldName, tableName));
 			}
 			return new BooleanNotQuery(orQ);
 		}

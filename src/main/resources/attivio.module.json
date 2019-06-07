@@ -5,7 +5,8 @@
   "initClassName":"com.attivio.transformer.query.GenericQTJ.ModuleInit",
   "components": [
     "com.attivio.transformer.query.GenericQTJ.GenericCompositeJoiner",
-    "com.attivio.transformer.query.GenericQTJ.MultiFieldJoiner"
+    "com.attivio.transformer.query.GenericQTJ.MultiFieldJoiner",
+    "com.ativio.transformer.response.GenericQTJ.ResubmitStrictJoin"
   ],
   "newFiles": {
     "lib/GenericQTJ.jar":"lib/GenericQTJ-${project.version}.jar"

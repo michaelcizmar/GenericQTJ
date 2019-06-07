@@ -147,7 +147,7 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 			Map<String, List<Query>> facetFiltersMap, List<QueryFeedback> feedback) throws AttivioException {
 		Query primaryTableQuery = super.generateFromQuery();
 		JoinQuery joinQuery = new JoinQuery(primaryTableQuery);
-		BooleanAndQuery andQuery = new BooleanAndQuery(new PhraseQuery(FieldNames.TABLE, metadataQueryTable));
+		BooleanAndQuery andQuery = new BooleanAndQuery(new PhraseQuery(this.collectionFieldName, metadataQueryTable));
 		andQuery.add(userQuery);
 		if (facetFiltersMap.containsKey(metadataQueryTable)) {
 			andQuery.add(facetFiltersMap.get(metadataQueryTable));
@@ -187,7 +187,7 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 		if (joinFields.containsKey(table)) {
 			field = joinFields.get(table);
 		}
-		PhraseQuery tableQuery = new PhraseQuery(FieldNames.TABLE, table);
+		PhraseQuery tableQuery = new PhraseQuery(this.collectionFieldName, table);
 		Query clauseQuery = tableQuery;
 		if (facetFiltersMap.containsKey(table)) {
 			BooleanAndQuery andQuery = new BooleanAndQuery(tableQuery);

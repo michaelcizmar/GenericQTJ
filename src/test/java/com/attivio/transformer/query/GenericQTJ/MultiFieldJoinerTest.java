@@ -19,6 +19,7 @@ public class MultiFieldJoinerTest {
 
 	private MultiFieldJoiner setup() {
 		MultiFieldJoiner joiner = new MultiFieldJoiner();
+		joiner.setMaxChildDocs(ObjectUtils.newMap("metadata", new Integer(5)));
 		joiner.setJoinField("metadataLink");
 		Map<String, Integer> maxDocs = new HashMap<String, Integer>();
 		maxDocs.put("metadata", 5);

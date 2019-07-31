@@ -197,6 +197,9 @@ public class MultiFieldJoiner extends GenericCompositeJoiner {
 			clauseQuery = andQuery;
 		}
 		JoinClause clause = new JoinClause(clauseQuery, joinMode, field, field);
+		if (this.maxChildDocs!=null && this.maxChildDocs.get(table)!=null) {
+		  clause.setRollupLimit(this.maxChildDocs.get(table));
+		}
 		return clause;
 	}
 

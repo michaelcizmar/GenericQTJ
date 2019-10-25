@@ -85,6 +85,7 @@ public class GenericCompositeJoinerTest {
 			assertEquals(join.getClauses().get(1).getMode(), JoinMode.OUTER);
 			assertEquals(0, join.getClauses().get(1).getBoost());
 			assertEquals(10, join.getClauses().get(1).getRollupLimit());
+			
 		} catch (AttivioException e) {
 			e.printStackTrace();
 		}

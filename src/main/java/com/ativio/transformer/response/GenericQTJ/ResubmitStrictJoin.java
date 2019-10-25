@@ -9,7 +9,7 @@ import com.attivio.sdk.server.annotation.ConfigurationOption.OptionLevel;
 import com.attivio.sdk.server.component.routing.MessageRoutingComponent;
 import com.attivio.transformer.query.GenericQTJ.GenericCompositeJoiner;
 
-@ConfigurationOptionInfo(displayName = "Relax Join Query", description = "Resubmit a join query that was a strict join", groups = {
+@ConfigurationOptionInfo(displayName = "Resubmit Strict Join Query", description = "Resubmit a join query that was a strict join", groups = {
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.PLATFORM_COMPONENT, propertyNames = {
 				"resubmitWorkflow" }), })
 public class ResubmitStrictJoin implements MessageRoutingComponent {

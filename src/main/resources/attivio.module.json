@@ -1,14 +1,15 @@
 {
-  "name":"GenericQTJ",
-  "moduleVersion":"${project.version}",
-  "description":"Suite of Query Transformers for Executing Joins",
-  "initClassName":"com.attivio.transformer.query.GenericQTJ.ModuleInit",
+  "name": "GenericQTJ",
+  "moduleVersion": "${project.version}",
+  "description": "Suite of Query Transformers for Executing Joins",
+  "initClassName": "com.attivio.transformer.query.GenericQTJ.ModuleInit",
   "components": [
     "com.attivio.transformer.query.GenericQTJ.GenericCompositeJoiner",
     "com.attivio.transformer.query.GenericQTJ.MultiFieldJoiner",
-    "com.ativio.transformer.response.GenericQTJ.ResubmitStrictJoin"
+    "com.ativio.transformer.response.GenericQTJ.ResubmitStrictJoin",
+    "com.ativio.transformer.response.GenericQTJ.ResubmitRelaxedJoin"
   ],
   "newFiles": {
-    "lib/GenericQTJ.jar":"lib/GenericQTJ-${project.version}.jar"
+    "lib/GenericQTJ.jar": "lib/GenericQTJ-${project.version}.jar"
   }
 }

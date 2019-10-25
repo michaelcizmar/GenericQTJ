@@ -46,8 +46,8 @@ import com.attivio.sdk.util.BaseTypesList;
 				"primaryTables", "nonPrimaryTables", "childTables", "joinField", "maxChildDocs",
 				"childTableFacetFields", "tablesToIncludeInFacetCounts" }),
 		@ConfigurationOptionInfo.Group(path = ConfigurationOptionInfo.ADVANCED, propertyNames = {
-				"ignoreAdvancedQueries", "provideFeedback", "collectionFieldName", "strictChildMatching", "allowChildDocOnlySearch",
-				"tableBoosts" }) })
+				"ignoreAdvancedQueries", "provideFeedback", "collectionFieldName", "strictChildMatching",
+				"allowChildDocOnlySearch", "tableBoosts" }) })
 public class GenericCompositeJoiner implements QueryTransformer {
 
 	private Logger log = LoggerFactory.getLogger(this.getClass());
@@ -107,8 +107,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	}
 
 	/**
-	 * @param metadataTable
-	 *            the metadataTable to set
+	 * @param metadataTable the metadataTable to set
 	 */
 	public void setChildTables(Map<String, String> childTables) {
 		this.childTables = childTables;
@@ -123,8 +122,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	}
 
 	/**
-	 * @param joinField
-	 *            the joinField to set
+	 * @param joinField the joinField to set
 	 */
 	public void setJoinField(String joinField) {
 		this.joinField = joinField;
@@ -139,8 +137,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	}
 
 	/**
-	 * @param maxChildDocs
-	 *            the maxChildDocs to set
+	 * @param maxChildDocs the maxChildDocs to set
 	 */
 	public void setMaxChildDocs(Map<String, Integer> maxChildDocs) {
 		this.maxChildDocs = maxChildDocs;
@@ -160,8 +157,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	}
 
 	/**
-	 * @param metadataFacetFields
-	 *            the metadataFacetFields to set
+	 * @param metadataFacetFields the metadataFacetFields to set
 	 */
 	public void setChildTableFacetFields(Map<String, String> metadataFacetFields) {
 		Map<String, List<String>> tableFacets = new HashMap<String, List<String>>();
@@ -267,11 +263,9 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	 * of{@code Queries} which can be added into the {@code CompositeJoin} down the
 	 * line.
 	 * 
-	 * @param qr
-	 *            The {@code QueryRequest} to strip the specific filter queries and
-	 *            facet filters from
-	 * @param feedback
-	 *            List of feedback to add additional feedback to
+	 * @param qr       The {@code QueryRequest} to strip the specific filter queries
+	 *                 and facet filters from
+	 * @param feedback List of feedback to add additional feedback to
 	 * @return A list of {@code Query} objects that represent the stripped filters
 	 *         and facet filters
 	 */
@@ -362,7 +356,7 @@ public class GenericCompositeJoiner implements QueryTransformer {
 					// Pattern pattern = Pattern.compile(regex);
 					// Matcher m = pattern.matcher(queryString);
 					// if (m.find() && m.groupCount() >= 1) {
-					 matchFound = true;
+					matchFound = true;
 					// String fieldValue = m.group(1);
 					// // QueryRequest filterQueryRequest = new QueryRequest();
 					// // filterQueryRequest.setQuery(facetFieldName + ":" + fieldValue, "simple");
@@ -468,9 +462,8 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	 * query and rewrite it to the standard range syntax from simple query language
 	 * (like [], [}, etc.)
 	 * 
-	 * @param fieldValue
-	 *            The field value to conditionally rewrite into a proper range query
-	 *            if necessary
+	 * @param fieldValue The field value to conditionally rewrite into a proper
+	 *                   range query if necessary
 	 */
 	private String handleRangeFacetFilters(String fieldValue) {
 		String returnValue = fieldValue;
@@ -604,9 +597,8 @@ public class GenericCompositeJoiner implements QueryTransformer {
 	 * {@code CompositeJoin} behavior where all matches from a child table are
 	 * returned as long as a match is found on at least one of them.
 	 * 
-	 * @param facetFiltersMap
-	 *            A map of child table name to a list of queries to add to that
-	 *            child table's join clause
+	 * @param facetFiltersMap A map of child table name to a list of queries to add
+	 *                        to that child table's join clause
 	 * @param qr
 	 * @param feedback
 	 * @return

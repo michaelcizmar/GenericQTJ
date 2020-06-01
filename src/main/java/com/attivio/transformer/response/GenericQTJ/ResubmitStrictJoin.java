@@ -1,4 +1,4 @@
-package com.ativio.transformer.response.GenericQTJ;
+package com.attivio.transformer.response.GenericQTJ;
 
 import com.attivio.sdk.esb.PlatformMessage;
 import com.attivio.sdk.search.QueryRequest;

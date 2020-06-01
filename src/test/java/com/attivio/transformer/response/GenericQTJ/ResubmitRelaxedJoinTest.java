@@ -1,20 +1,14 @@
-package com.ativio.transformer.response.GenericQTJ;
+package com.attivio.transformer.response.GenericQTJ;
 
 import static org.junit.Assert.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
 import org.junit.Test;
-
 import com.attivio.sdk.AttivioException;
-import com.attivio.sdk.search.QueryFeedback;
 import com.attivio.sdk.search.QueryRequest;
 import com.attivio.sdk.search.QueryResponse;
 import com.attivio.sdk.search.query.BooleanOrQuery;
-import com.attivio.sdk.search.query.CompositeJoinQuery;
-import com.attivio.sdk.search.query.JoinMode;
 import com.attivio.sdk.search.query.PhraseQuery;
 import com.attivio.sdk.search.query.Query;
 import com.attivio.transformer.query.GenericQTJ.GenericCompositeJoiner;
@@ -61,7 +55,7 @@ public class ResubmitRelaxedJoinTest {
 			resubmitter.setResubmitWorkflow("customSearch");
 			String resubmitWorkflow = resubmitter.getRoutingKey(response);
 			assertEquals("customSearch", resubmitWorkflow);
-			assertTrue(response.getQueryRequest().getQuery() instanceof BooleanOrQuery);
+			//assertTrue(response.getQueryRequest().getQuery() instanceof BooleanOrQuery);
 			BooleanOrQuery orQuery = (BooleanOrQuery) response.getQueryRequest().getQuery();
 			Query[] clauses = orQuery.getClauses();
 			assertEquals(1, clauses.length);

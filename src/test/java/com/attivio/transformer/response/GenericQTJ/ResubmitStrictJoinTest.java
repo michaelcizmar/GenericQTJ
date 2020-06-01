@@ -1,4 +1,4 @@
-package com.ativio.transformer.response.GenericQTJ;
+package com.attivio.transformer.response.GenericQTJ;
 
 import static org.junit.Assert.*;
 

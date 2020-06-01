@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.attivio.sdk.AttivioException;
-import com.attivio.sdk.schema.FieldNames;
 import com.attivio.sdk.search.QueryFeedback;
 import com.attivio.sdk.search.QueryRequest;
 import com.attivio.sdk.search.query.BooleanAndQuery;
